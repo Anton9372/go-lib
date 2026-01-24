@@ -1,0 +1,64 @@
+package client
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const ErrCodeUniqueViolation = "23505"
+
+type Config struct {
+	Host     string `env:"POSTGRES_HOST"`
+	Port     string `env:"POSTGRES_PORT"`
+	Database string `env:"POSTGRES_DATABASE"`
+	Username string `env:"POSTGRES_USERNAME"`
+	Password string `env:"POSTGRES_PASSWORD"`
+}
+
+func NewPgxPool(ctx context.Context, l *slog.Logger, cfg Config) (*pgxpool.Pool, func(context.Context) error, error) {
+	l.Debug("Init postgres client", slog.Group(
+		"config",
+		slog.String("host", cfg.Host),
+		slog.String("port", cfg.Port),
+		slog.String("database", cfg.Database),
+		slog.String("username", cfg.Username),
+		slog.String("password", "***"),
+	))
+
+	hostPort := net.JoinHostPort(cfg.Host, cfg.Port)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
+		cfg.Username,
+		cfg.Password,
+		hostPort,
+		cfg.Database,
+	)
+
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse config: %w", err)
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("connect to postgres: %w", err)
+	}
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("ping postgres: %w", err)
+	}
+
+	l.Info("Successfully connected to postgres")
+
+	shutdown := func(_ context.Context) error {
+		pool.Close()
+
+		return nil
+	}
+
+	return pool, shutdown, nil
+}

@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-lint:
+    runs-on: ubuntu-latest
+    env:
+      XDG_RUNTIME_DIR: /tmp/runtime-dir
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25.6
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Check network configuration
+        run: |
+          echo "Checking network settings..."
+          netstat -tulnp
+          ip a
+          ping -c 4 google.com
+
+      - name: Check Docker info
+        run: docker info
+
+      - name: Prepare runtime dir
+        run: mkdir -p $XDG_RUNTIME_DIR
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Check database connection
+        run: |
+          echo "Checking DB connection..."
+          go run -e "import (
+              \"context\"
+              \"fmt\"
+              \"github.com/jackc/pgx/v5/pgxpool\"
+          ) 
+          pool, err := pgxpool.New(context.Background(), \"postgres://user:pass@${POSTGRES_HOST}:${POSTGRES_PORT}/testdb?sslmode=disable\")
+          if err != nil {
+              fmt.Println(\"Error connecting to DB:\", err)
+          } else {
+              fmt.Println(\"DB connected successfully!\")
+          }"
+
+      - name: Test
+        run: |
+          echo "Running tests..."
+          go test ./... -v -cover
+          echo "Tests completed."
+
+      - name: Get container logs
+        run: docker logs $(docker ps -q --filter ancestor=postgres:15)
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
