@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,21 +18,11 @@ type Config struct {
 	Password string `env:"POSTGRES_PASSWORD"`
 }
 
-func NewPgxPool(ctx context.Context, l *slog.Logger, cfg Config) (*pgxpool.Pool, func(context.Context) error, error) {
-	l.Debug("Init postgres client", slog.Group(
-		"config",
-		slog.String("host", cfg.Host),
-		slog.String("port", cfg.Port),
-		slog.String("database", cfg.Database),
-		slog.String("username", cfg.Username),
-		slog.String("password", "***"),
-	))
-
-	hostPort := net.JoinHostPort(cfg.Host, cfg.Port)
+func NewPgxPool(ctx context.Context, cfg Config) (*pgxpool.Pool, func(context.Context) error, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
 		cfg.Username,
 		cfg.Password,
-		hostPort,
+		net.JoinHostPort(cfg.Host, cfg.Port),
 		cfg.Database,
 	)
 
@@ -51,8 +40,6 @@ func NewPgxPool(ctx context.Context, l *slog.Logger, cfg Config) (*pgxpool.Pool,
 	if err != nil {
 		return nil, nil, fmt.Errorf("ping postgres: %w", err)
 	}
-
-	l.Info("Successfully connected to postgres")
 
 	shutdown := func(_ context.Context) error {
 		pool.Close()
