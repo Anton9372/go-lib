@@ -113,3 +113,37 @@ func PgTimePtr(t *time.Time) pgtype.Timestamptz {
 		Valid: true,
 	}
 }
+
+func Int64(i pgtype.Int8) (int64, error) {
+	if !i.Valid {
+		return 0, errors.New("int8 is null") //nolint:err113 // errors.New is perfect here
+	}
+
+	return i.Int64, nil
+}
+
+func Int64Ptr(i pgtype.Int8) *int64 {
+	if !i.Valid {
+		return nil
+	}
+
+	return &i.Int64
+}
+
+func PgInt8(i int64) pgtype.Int8 {
+	return pgtype.Int8{
+		Int64: i,
+		Valid: true,
+	}
+}
+
+func PgInt8Ptr(i *int64) pgtype.Int8 {
+	if i == nil {
+		return pgtype.Int8{Valid: false}
+	}
+
+	return pgtype.Int8{
+		Int64: *i,
+		Valid: true,
+	}
+}
