@@ -61,7 +61,6 @@ linters:
     - nestif             # Reports deeply nested if statements
     - nilerr             # Finds the code that returns nil even if it checks that the error is not nil.
     - nilnil             # Checks that there is no simultaneous return of `nil` error and an invalid value.
-    - nlreturn           # checks for a new line before return and branch statements to increase code clarity
     - noctx              # Finds sending http request without context.Context
     - nolintlint         # Reports ill-formed or insufficient nolint directives
     - nonamedreturns     # Reports all named returns
@@ -102,6 +101,7 @@ linters:
     - gochecknoglobals  # global variables allow to calculate them once and avoid code duplication
     - godot             # force to put dot in the end of comment
     - godox             # disable usage of TODO/BUG/FIXME
+    - nlreturn          # checks for a new line before return and branch statements to increase code clarity
     - tagliatelle       # checks the struct tags. External services uses different tags conventions
     - testpackage       # linter that makes you use a separate _test package
     - varnamelen        # sometimes we want short names (c for gin.Context)
