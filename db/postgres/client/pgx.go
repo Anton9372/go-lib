@@ -6,6 +6,8 @@ import (
 	"net"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Anton9372/go-lib/shutdown"
 )
 
 const ErrCodeUniqueViolation = "23505"
@@ -18,7 +20,7 @@ type Config struct {
 	Password string `env:"POSTGRES_PASSWORD"`
 }
 
-func NewPgxPool(ctx context.Context, cfg Config) (*pgxpool.Pool, func(context.Context) error, error) {
+func NewPgxPool(ctx context.Context, cfg Config) (*pgxpool.Pool, shutdown.CloseFunc, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
 		cfg.Username,
 		cfg.Password,
@@ -41,11 +43,10 @@ func NewPgxPool(ctx context.Context, cfg Config) (*pgxpool.Pool, func(context.Co
 		return nil, nil, fmt.Errorf("ping postgres: %w", err)
 	}
 
-	shutdown := func(_ context.Context) error {
+	closeFn := func(_ context.Context) error {
 		pool.Close()
-
 		return nil
 	}
 
-	return pool, shutdown, nil
+	return pool, closeFn, nil
 }
