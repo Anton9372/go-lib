@@ -26,7 +26,7 @@ func FromContext(ctx context.Context) *slog.Logger {
 	}
 
 	l := slog.Default()
-	l.Error("no logger found in context, using default", slog.String("caller", callerInfo))
+	l.Error("No logger found in context, using default", slog.String("caller", callerInfo))
 
 	return l
 }
