@@ -15,7 +15,7 @@ import (
 )
 
 type MsgHandler interface {
-	Handle(ctx context.Context, msg amqp.Delivery) error
+	Handle(ctx context.Context, msg amqp.Delivery)
 }
 
 type Consumer struct {
@@ -128,16 +128,5 @@ func (c *Consumer) consumeMsg(ctx context.Context, msg amqp.Delivery) {
 
 	msgCtx := logger.ContextWithLogger(ctx, msgLogger)
 
-	err := c.msgHandler.Handle(msgCtx, msg)
-
-	if err != nil {
-		c.l.Error("Unable to handle message, nacking", logger.ErrAttr(err))
-		if nackErr := msg.Nack(false, true); nackErr != nil {
-			c.l.Error("Unable to NACK RabbitMQ message", logger.ErrAttr(nackErr))
-		}
-	} else {
-		if ackErr := msg.Ack(false); ackErr != nil {
-			c.l.Error("Unable to ACK RabbitMQ message", logger.ErrAttr(ackErr))
-		}
-	}
+	c.msgHandler.Handle(msgCtx, msg)
 }
