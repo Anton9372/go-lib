@@ -23,7 +23,7 @@ type ClientConfig struct {
 	Username string `env:"RABBIT_USERNAME"`
 	Password string `env:"RABBIT_PASSWORD"`
 
-	ReconnectTimeout time.Duration `env:"RABBIT_RECONNECT_TIMEOUT"`
+	ReconnectTimeout time.Duration `env:"RABBIT_RECONNECT_TIMEOUT" default:"5s"`
 }
 
 func (cfg ClientConfig) dsn() string {
@@ -133,23 +133,42 @@ func (c *Client) connectUnsafe() error {
 	ch, err := conn.Channel()
 	if err != nil {
 		if closeErr := conn.Close(); closeErr != nil {
-			c.l.Error("Unable to close RabbitMQ channel", logger.ErrAttr(closeErr))
+			c.l.Error("Unable to close RabbitMQ connection", logger.ErrAttr(closeErr))
 		}
 
 		return fmt.Errorf("open channel: %w", err)
 	}
 
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.ch != nil {
+		if err = c.ch.Close(); err != nil && !errors.Is(err, amqp.ErrClosed) {
+			c.l.Warn("Error closing old RabbitMQ channel during reconnect", logger.ErrAttr(err))
+		}
+	}
+	if c.conn != nil {
+		if err = c.conn.Close(); err != nil && !errors.Is(err, amqp.ErrClosed) {
+			c.l.Warn("Error closing old RabbitMQ connection during reconnect", logger.ErrAttr(err))
+		}
+	}
+
 	c.conn = conn
 	c.ch = ch
 	c.connected = true
-	c.mu.Unlock()
 
 	return nil
 }
 
 func (c *Client) monitorConnection(ctx context.Context) {
 	c.mu.RLock()
+
+	if c.conn == nil {
+		c.mu.RUnlock()
+		c.l.Warn("monitorConnection called with nil connection, forcing reconnect")
+		return
+	}
+
 	connCloseCh := c.conn.NotifyClose(make(chan *amqp.Error, 1))
 	c.mu.RUnlock()
 
