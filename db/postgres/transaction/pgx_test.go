@@ -60,9 +60,8 @@ func setupPgxPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestRun_Success(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	pool := setupPgxPool(t)
 
@@ -95,9 +94,8 @@ func TestRun_Success(t *testing.T) {
 	require.Equal(t, 1, count)
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestRun_Error_Rollback_OneOperation(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	pool := setupPgxPool(t)
 
@@ -131,9 +129,8 @@ func TestRun_Error_Rollback_OneOperation(t *testing.T) {
 	require.False(t, exists)
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestRun_Error_Rollback_MultipleOperations(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	pool := setupPgxPool(t)
 
@@ -178,9 +175,8 @@ func TestRun_Error_Rollback_MultipleOperations(t *testing.T) {
 	require.Equal(t, 0, count)
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestRun_Panic_Rollback_OneOperation(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	pool := setupPgxPool(t)
 
@@ -214,9 +210,8 @@ func TestRun_Panic_Rollback_OneOperation(t *testing.T) {
 	require.False(t, exists)
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestRun_Panic_Rollback_MultipleOperations(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	pool := setupPgxPool(t)
 
