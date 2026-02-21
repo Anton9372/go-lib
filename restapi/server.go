@@ -15,7 +15,7 @@ import (
 )
 
 type Handler interface {
-	RegisterRoutes(r *gin.Engine)
+	RegisterRoutes(r *gin.RouterGroup)
 }
 
 type ServerConfig struct {
@@ -37,8 +37,10 @@ func NewServer(cfg ServerConfig, l *slog.Logger, handlers []Handler, middlewares
 
 	router.Use(middlewares...)
 
+	api := router.Group("/api")
+
 	for _, h := range handlers {
-		h.RegisterRoutes(router)
+		h.RegisterRoutes(api)
 	}
 
 	server := &http.Server{
