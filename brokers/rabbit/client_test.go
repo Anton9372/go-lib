@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 
-	"github.com/Anton9372/go-lib/brokers/rabbit" // Твой пакет
+	"github.com/Anton9372/go-lib/brokers/rabbit"
 )
 
-func setupRabbitContainer(t *testing.T, ctx context.Context) (*rabbitmq.RabbitMQContainer, rabbit.ClientConfig) {
+func setupRabbitContainer(ctx context.Context, t *testing.T) (*rabbitmq.RabbitMQContainer, rabbit.ClientConfig) {
 	t.Helper()
 
 	rabbitContainer, err := rabbitmq.Run(ctx, "rabbitmq:3.12-management-alpine")
@@ -46,12 +46,17 @@ func setupRabbitContainer(t *testing.T, ctx context.Context) (*rabbitmq.RabbitMQ
 	return rabbitContainer, cfg
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestClient_ConnectAndClose(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	container, cfg := setupRabbitContainer(t, ctx)
-	defer container.Terminate(ctx)
+	container, cfg := setupRabbitContainer(ctx, t)
+	defer func() {
+		if err := container.Terminate(ctx); err != nil {
+			t.Errorf("Failed to terminate container: %v", err)
+		}
+	}()
 
 	l := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
@@ -75,12 +80,17 @@ func TestClient_ConnectAndClose(t *testing.T) {
 	assert.ErrorContains(t, err, "RabbitMQ connection is not ready")
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	container, cfg := setupRabbitContainer(t, ctx)
-	defer container.Terminate(ctx)
+	container, cfg := setupRabbitContainer(ctx, t)
+	defer func() {
+		if err := container.Terminate(ctx); err != nil {
+			t.Errorf("Failed to terminate container: %v", err)
+		}
+	}()
 
 	l := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
@@ -90,7 +100,11 @@ func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 
 	closeFunc, err := client.Connect(ctx)
 	require.NoError(t, err)
-	defer closeFunc(ctx)
+	defer func() {
+		if err = closeFunc(ctx); err != nil {
+			t.Errorf("Close func: %v", err)
+		}
+	}()
 
 	_, err = client.Channel()
 	require.NoError(t, err)
@@ -116,12 +130,17 @@ func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 	}, 10*time.Second, 100*time.Millisecond, "Client failed to auto-reconnect to RabbitMQ")
 }
 
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
 func TestClient_ConcurrentAccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	container, cfg := setupRabbitContainer(t, ctx)
-	defer container.Terminate(ctx)
+	container, cfg := setupRabbitContainer(ctx, t)
+	defer func() {
+		if err := container.Terminate(ctx); err != nil {
+			t.Errorf("Failed to terminate container: %v", err)
+		}
+	}()
 
 	l := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
@@ -131,21 +150,22 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 
 	closeFunc, err := client.Connect(ctx)
 	require.NoError(t, err)
-	defer closeFunc(ctx)
+	defer func() {
+		if err = closeFunc(ctx); err != nil {
+			t.Errorf("Close func: %v", err)
+		}
+	}()
 
 	var wg sync.WaitGroup
 	workers := 50
 
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for j := 0; j < 100; j++ {
+	for range workers {
+		wg.Go(func() {
+			for range 100 {
 				_, _ = client.Channel()
 				time.Sleep(1 * time.Millisecond)
 			}
-		}()
+		})
 	}
 
 	_, _, err = container.Exec(ctx, []string{"rabbitmqctl", "close_all_connections", "Test chaos"})

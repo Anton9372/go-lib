@@ -23,7 +23,7 @@ type ClientConfig struct {
 	Username string `env:"RABBIT_USERNAME"`
 	Password string `env:"RABBIT_PASSWORD"`
 
-	ReconnectTimeout time.Duration `env:"RABBIT_RECONNECT_TIMEOUT" default:"5s"`
+	ReconnectTimeout time.Duration `default:"5s" env:"RABBIT_RECONNECT_TIMEOUT"`
 }
 
 func (cfg ClientConfig) dsn() string {
