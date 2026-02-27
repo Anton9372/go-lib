@@ -90,6 +90,22 @@ func (c *Client) NewChannel() (*amqp.Channel, error) {
 	return conn.Channel()
 }
 
+func (c *Client) WithChannel(fn func(ch *amqp.Channel) error) error {
+	ch, err := c.NewChannel()
+	if err != nil {
+		return fmt.Errorf("unable to get channel: %w", err)
+	}
+
+	defer func() {
+		err = ch.Close()
+		if err != nil && !errors.Is(err, amqp.ErrClosed) {
+			c.l.Warn("Unable to close RabbitMQ channel", logger.ErrAttr(err))
+		}
+	}()
+
+	return fn(ch)
+}
+
 func (c *Client) keepConnection(ctx context.Context) {
 	for {
 		c.monitorConnection(ctx)
@@ -136,7 +152,7 @@ func (c *Client) connectUnsafe() error {
 
 	if c.conn != nil {
 		if err = c.conn.Close(); err != nil && !errors.Is(err, amqp.ErrClosed) {
-			c.l.Warn("Error closing old RabbitMQ connection during reconnect", logger.ErrAttr(err))
+			c.l.Warn("Unable to close old RabbitMQ connection during reconnect", logger.ErrAttr(err))
 		}
 	}
 
