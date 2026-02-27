@@ -68,7 +68,7 @@ func TestClient_ConnectAndClose(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, closeFunc)
 
-	ch, err := client.Channel()
+	ch, err := client.NewChannel()
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 	assert.False(t, ch.IsClosed(), "channel should be open")
@@ -76,7 +76,7 @@ func TestClient_ConnectAndClose(t *testing.T) {
 	err = closeFunc(ctx)
 	require.NoError(t, err)
 
-	_, err = client.Channel()
+	_, err = client.NewChannel()
 	assert.ErrorContains(t, err, "RabbitMQ connection is not ready")
 }
 
@@ -106,7 +106,7 @@ func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 		}
 	}()
 
-	_, err = client.Channel()
+	_, err = client.NewChannel()
 	require.NoError(t, err)
 
 	_, _, err = container.Exec(ctx, []string{"rabbitmqctl", "stop_app"})
@@ -114,14 +114,14 @@ func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	_, err = client.Channel()
+	_, err = client.NewChannel()
 	require.ErrorContains(t, err, "RabbitMQ connection is not ready", "client should block channel access during outage")
 
 	_, _, err = container.Exec(ctx, []string{"rabbitmqctl", "start_app"})
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		ch, err := client.Channel()
+		ch, err := client.NewChannel()
 		if err != nil {
 			return false
 		}
@@ -162,7 +162,7 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 	for range workers {
 		wg.Go(func() {
 			for range 100 {
-				_, _ = client.Channel()
+				_, _ = client.NewChannel()
 				time.Sleep(1 * time.Millisecond)
 			}
 		})

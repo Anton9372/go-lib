@@ -31,10 +31,8 @@ func (cfg ClientConfig) dsn() string {
 }
 
 type Client struct {
-	mu   sync.RWMutex
-	conn *amqp.Connection
-	ch   *amqp.Channel
-
+	mu        sync.RWMutex
+	conn      *amqp.Connection
 	connected bool
 
 	l *slog.Logger
@@ -78,15 +76,18 @@ func (c *Client) Connect(ctx context.Context) (shutdown.CloseFunc, error) {
 	return c.close, nil
 }
 
-func (c *Client) Channel() (*amqp.Channel, error) {
+func (c *Client) NewChannel() (*amqp.Channel, error) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
 
-	if !c.connected || c.ch == nil {
+	if !c.connected || c.conn == nil {
+		c.mu.RUnlock()
 		return nil, errors.New("RabbitMQ connection is not ready")
 	}
 
-	return c.ch, nil
+	conn := c.conn
+	c.mu.RUnlock()
+
+	return conn.Channel()
 }
 
 func (c *Client) keepConnection(ctx context.Context) {
@@ -130,23 +131,9 @@ func (c *Client) connectUnsafe() error {
 		return fmt.Errorf("amqp dial: %w", err)
 	}
 
-	ch, err := conn.Channel()
-	if err != nil {
-		if closeErr := conn.Close(); closeErr != nil {
-			c.l.Error("Unable to close RabbitMQ connection", logger.ErrAttr(closeErr))
-		}
-
-		return fmt.Errorf("open channel: %w", err)
-	}
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.ch != nil {
-		if err = c.ch.Close(); err != nil && !errors.Is(err, amqp.ErrClosed) {
-			c.l.Warn("Error closing old RabbitMQ channel during reconnect", logger.ErrAttr(err))
-		}
-	}
 	if c.conn != nil {
 		if err = c.conn.Close(); err != nil && !errors.Is(err, amqp.ErrClosed) {
 			c.l.Warn("Error closing old RabbitMQ connection during reconnect", logger.ErrAttr(err))
@@ -154,7 +141,6 @@ func (c *Client) connectUnsafe() error {
 	}
 
 	c.conn = conn
-	c.ch = ch
 	c.connected = true
 
 	return nil
@@ -195,12 +181,6 @@ func (c *Client) close(ctx context.Context) error {
 	defer c.mu.Unlock()
 
 	c.connected = false
-
-	if c.ch != nil {
-		if err := c.ch.Close(); err != nil && !errors.Is(err, amqp.ErrClosed) {
-			c.l.Error("Unable to close RabbitMQ channel", logger.ErrAttr(err))
-		}
-	}
 
 	var err error
 
