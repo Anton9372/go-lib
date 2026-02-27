@@ -2,6 +2,7 @@ package rabbit_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/modules/rabbitmq"
@@ -68,7 +70,7 @@ func TestClient_ConnectAndClose(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, closeFunc)
 
-	ch, err := client.Channel()
+	ch, err := client.NewChannel()
 	require.NoError(t, err)
 	require.NotNil(t, ch)
 	assert.False(t, ch.IsClosed(), "channel should be open")
@@ -76,7 +78,7 @@ func TestClient_ConnectAndClose(t *testing.T) {
 	err = closeFunc(ctx)
 	require.NoError(t, err)
 
-	_, err = client.Channel()
+	_, err = client.NewChannel()
 	assert.ErrorContains(t, err, "RabbitMQ connection is not ready")
 }
 
@@ -106,7 +108,7 @@ func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 		}
 	}()
 
-	_, err = client.Channel()
+	_, err = client.NewChannel()
 	require.NoError(t, err)
 
 	_, _, err = container.Exec(ctx, []string{"rabbitmqctl", "stop_app"})
@@ -114,14 +116,14 @@ func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	_, err = client.Channel()
+	_, err = client.NewChannel()
 	require.ErrorContains(t, err, "RabbitMQ connection is not ready", "client should block channel access during outage")
 
 	_, _, err = container.Exec(ctx, []string{"rabbitmqctl", "start_app"})
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		ch, err := client.Channel()
+		ch, err := client.NewChannel()
 		if err != nil {
 			return false
 		}
@@ -162,7 +164,7 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 	for range workers {
 		wg.Go(func() {
 			for range 100 {
-				_, _ = client.Channel()
+				_, _ = client.NewChannel()
 				time.Sleep(1 * time.Millisecond)
 			}
 		})
@@ -172,4 +174,64 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 	require.NoError(t, err)
 
 	wg.Wait()
+}
+
+//nolint:paralleltest // github workflow will cry as we are launching new container for each test
+func TestClient_WithChannel(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	container, cfg := setupRabbitContainer(ctx, t)
+	defer func() {
+		if err := container.Terminate(ctx); err != nil {
+			t.Errorf("Failed to terminate container: %v", err)
+		}
+	}()
+
+	l := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	}))
+	client := rabbit.NewClient(cfg, l)
+
+	closeFunc, err := client.Connect(ctx)
+	require.NoError(t, err)
+	defer func() {
+		if err = closeFunc(ctx); err != nil {
+			t.Errorf("Close func: %v", err)
+		}
+	}()
+
+	t.Run("success and channel closed", func(t *testing.T) {
+		var capturedCh *amqp.Channel
+
+		err = client.WithChannel(func(ch *amqp.Channel) error {
+			capturedCh = ch
+
+			assert.False(t, ch.IsClosed(), "channel should be open inside callback")
+
+			_, declareErr := ch.QueueDeclare("test_with_channel_queue", false, true, false, false, nil)
+			return declareErr
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, capturedCh)
+
+		assert.True(t, capturedCh.IsClosed(), "channel MUST be closed after WithChannel returns")
+	})
+
+	t.Run("error propagation", func(t *testing.T) {
+		expectedErr := errors.New("custom business error")
+		var capturedCh *amqp.Channel
+
+		err = client.WithChannel(func(ch *amqp.Channel) error {
+			capturedCh = ch
+			return expectedErr
+		})
+
+		require.ErrorIs(t, err, expectedErr)
+
+		require.NotNil(t, capturedCh)
+		assert.True(t, capturedCh.IsClosed(), "channel MUST be closed even if callback returned an error")
+	})
 }
