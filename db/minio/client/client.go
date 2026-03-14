@@ -27,7 +27,7 @@ func New(ctx context.Context, l *slog.Logger, cfg Config, buckets []string) (*mi
 	for _, bucket := range buckets {
 		exists, err := minioClient.BucketExists(ctx, bucket)
 		if err != nil {
-			return nil, fmt.Errorf("check bucket exists: %w", err)
+			return nil, fmt.Errorf("check bucket %s exists: %w", bucket, err)
 		}
 
 		if exists {
@@ -37,11 +37,11 @@ func New(ctx context.Context, l *slog.Logger, cfg Config, buckets []string) (*mi
 
 		err = minioClient.MakeBucket(ctx, bucket, minio.MakeBucketOptions{})
 		if err != nil {
-			return nil, fmt.Errorf("create bucket %s: %w", buckets, err)
+			return nil, fmt.Errorf("create bucket %s: %w", bucket, err)
 		}
 	}
 
-	l.Info("Successfully initialized Minio client")
+	l.Info("Successfully initialized MinIO client")
 
 	return minioClient, nil
 }
