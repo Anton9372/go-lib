@@ -20,7 +20,7 @@ func RequestContextLogger(baseLogger *slog.Logger) gin.HandlerFunc {
 		l := baseLogger.With(slog.String("request-id", reqID))
 
 		corrID := c.GetHeader(headerCorrelationID)
-		if corrID != "" {
+		if corrID == "" {
 			corrID = uuid.New().String()
 		}
 
