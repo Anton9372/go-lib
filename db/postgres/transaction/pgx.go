@@ -62,6 +62,7 @@ func (r *PgxTransactionRunner) Run(ctx context.Context, fn func(ctx context.Cont
 	return nil
 }
 
+//nolint:ireturn // pgx.Tx designed as an interface, it is returned from e.g. pool.Begin
 func FromContext(ctx context.Context) (pgx.Tx, bool) {
 	tx, ok := ctx.Value(txKey{}).(pgx.Tx)
 
