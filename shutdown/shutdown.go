@@ -22,7 +22,10 @@ func CloseConnections(stages []CloseStage, l *slog.Logger, timeout time.Duration
 	done := make(chan struct{})
 
 	go func() {
-		for i, stage := range stages {
+		defer close(done)
+
+		for i := len(stages) - 1; i >= 0; i-- {
+			stage := stages[i]
 			if len(stage) == 0 {
 				continue
 			}
@@ -41,14 +44,19 @@ func CloseConnections(stages []CloseStage, l *slog.Logger, timeout time.Duration
 				}(closeFn)
 			}
 
-			wg.Wait()
+			stageDone := make(chan struct{})
+			go func() {
+				wg.Wait()
+				close(stageDone)
+			}()
 
-			if ctx.Err() != nil {
-				break
+			select {
+			case <-stageDone:
+			case <-ctx.Done():
+				l.Error("Stage shutdown interrupted by timeout", slog.Int("stage_index", i))
+				return
 			}
 		}
-
-		done <- struct{}{}
 	}()
 
 	select {
