@@ -20,7 +20,7 @@ func CloseConnections(closers []CloseFunc, l *slog.Logger, timeout time.Duration
 	var wg sync.WaitGroup
 	wg.Add(len(closers))
 
-	for _, closeFn := range closers {
+	for i := len(closers) - 1; i >= 0; i-- {
 		go func(fn func(context.Context) error) {
 			defer wg.Done()
 
@@ -28,7 +28,7 @@ func CloseConnections(closers []CloseFunc, l *slog.Logger, timeout time.Duration
 			if err != nil {
 				l.Error("Closing connection", logger.ErrAttr(err))
 			}
-		}(closeFn)
+		}(closers[i])
 	}
 
 	done := make(chan struct{})
