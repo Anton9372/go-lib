@@ -16,7 +16,7 @@ type Config struct {
 	SecretAccessKey string `env:"MINIO_SECRET_ACCESS_KEY"`
 }
 
-func New(ctx context.Context, l *slog.Logger, cfg Config) (*minio.Client, error) {
+func New(cfg Config) (*minio.Client, error) {
 	minioClient, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKeyID, cfg.SecretAccessKey, ""),
 		Secure: false,
@@ -24,8 +24,6 @@ func New(ctx context.Context, l *slog.Logger, cfg Config) (*minio.Client, error)
 	if err != nil {
 		return nil, fmt.Errorf("create minio client: %w", err)
 	}
-
-	l.Info("Successfully initialized MinIO client")
 
 	return minioClient, nil
 }
