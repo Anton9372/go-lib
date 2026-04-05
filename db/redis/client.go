@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"fmt"
-
 	"log/slog"
 
 	"github.com/redis/go-redis/v9"
