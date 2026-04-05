@@ -19,14 +19,14 @@ type Config struct {
 	Database int    `env:"REDIS_DATABASE" yaml:"database"`
 }
 
-func New(cfg Config, l *slog.Logger) (*redis.Client, shutdown.CloseFunc, error) {
+func New(ctx context.Context, cfg Config, l *slog.Logger) (*redis.Client, shutdown.CloseFunc, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
 		Password: cfg.Password,
 		DB:       cfg.Database,
 	})
 
-	_, err := client.Ping().Result()
+	_, err := client.Ping(ctx).Result()
 	if err != nil {
 		if closeErr := client.Close(); closeErr != nil {
 			l.Error("Unable to close redis client", logger.ErrAttr(err))
