@@ -10,10 +10,10 @@ import (
 )
 
 type Config struct {
-	Host     string `env:"REDIS_HOST"               yaml:"host"`
-	Port     string `env:"REDIS_PORT"               yaml:"port"`
-	Password string `env:"REDIS_PASSWORD"           yaml:"password"`
-	Database int    `env:"REDIS_DATABASE"           yaml:"database"`
+	Host     string `env:"REDIS_HOST"     yaml:"host"`
+	Port     string `env:"REDIS_PORT"     yaml:"port"`
+	Password string `env:"REDIS_PASSWORD" yaml:"password"`
+	Database int    `env:"REDIS_DATABASE" yaml:"database"`
 }
 
 func New(cfg *Config) (*redis.Client, shutdown.CloseFunc, error) {
