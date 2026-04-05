@@ -30,10 +30,24 @@ type Server struct {
 	l      *slog.Logger
 }
 
-func NewServer(cfg ServerConfig, l *slog.Logger, handlers []Handler, middlewares []gin.HandlerFunc) (*Server, shutdown.CloseFunc) {
+type ServerOption func(r *gin.Engine) error
+
+func NewServer(
+	cfg ServerConfig,
+	l *slog.Logger,
+	handlers []Handler,
+	middlewares []gin.HandlerFunc,
+	opts ...ServerOption,
+) (*Server, shutdown.CloseFunc, error) {
 	l.Info("Initializing HTTP server", slog.String("host", cfg.Host), slog.String("port", cfg.Port))
 
 	router := gin.New()
+
+	for _, opt := range opts {
+		if err := opt(router); err != nil {
+			return nil, nil, fmt.Errorf("apply server option: %w", err)
+		}
+	}
 
 	router.Use(middlewares...)
 
@@ -57,7 +71,16 @@ func NewServer(cfg ServerConfig, l *slog.Logger, handlers []Handler, middlewares
 	return &Server{
 		server: server,
 		l:      l,
-	}, closeFn
+	}, closeFn, nil
+}
+
+func WithTrustedProxies(proxies []string) ServerOption {
+	return func(r *gin.Engine) error {
+		if err := r.SetTrustedProxies(proxies); err != nil {
+			return fmt.Errorf("set trusted proxies: %w", err)
+		}
+		return nil
+	}
 }
 
 func (s *Server) Run() error {
