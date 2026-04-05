@@ -1,8 +1,10 @@
-package redisc
+package redis
 
 import (
 	"context"
 	"fmt"
+	"github.com/Anton9372/go-lib/logger"
+	"log/slog"
 
 	"github.com/go-redis/redis"
 
@@ -16,16 +18,19 @@ type Config struct {
 	Database int    `env:"REDIS_DATABASE" yaml:"database"`
 }
 
-func New(cfg *Config) (*redis.Client, shutdown.CloseFunc, error) {
+func New(cfg Config, l *slog.Logger) (*redis.Client, shutdown.CloseFunc, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
 		Password: cfg.Password,
 		DB:       cfg.Database,
 	})
 
-	_, pingErr := client.Ping().Result()
-	if pingErr != nil {
-		return nil, nil, fmt.Errorf("ping: %w", pingErr)
+	_, err := client.Ping().Result()
+	if err != nil {
+		if closeErr := client.Close(); closeErr != nil {
+			l.Error("Unable to close redis client", logger.ErrAttr(err))
+		}
+		return nil, nil, fmt.Errorf("ping redis: %w", err)
 	}
 
 	closeFn := func(_ context.Context) error {
