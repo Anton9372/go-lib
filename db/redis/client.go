@@ -3,11 +3,12 @@ package redis
 import (
 	"context"
 	"fmt"
-	"github.com/Anton9372/go-lib/logger"
+
 	"log/slog"
 
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 
+	"github.com/Anton9372/go-lib/logger"
 	"github.com/Anton9372/go-lib/shutdown"
 )
 
