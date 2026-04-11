@@ -7,11 +7,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Anton9372/go-lib/logger"
+	"github.com/Anton9372/go-lib/restapi"
 	"github.com/Anton9372/go-lib/trace"
-)
-
-const (
-	headerCorrelationID = "X-Correlation-ID"
 )
 
 func RequestContextLogger(baseLogger *slog.Logger) gin.HandlerFunc {
@@ -19,13 +16,13 @@ func RequestContextLogger(baseLogger *slog.Logger) gin.HandlerFunc {
 		reqID := uuid.New().String()
 		l := baseLogger.With(slog.String("request-id", reqID))
 
-		corrID := c.GetHeader(headerCorrelationID)
+		corrID := c.GetHeader(restapi.HeaderXCorrelationID)
 		if corrID == "" {
 			corrID = uuid.New().String()
 		}
 
 		l = l.With(slog.String("correlation-id", corrID))
-		c.Header(headerCorrelationID, corrID)
+		c.Header(restapi.HeaderXCorrelationID, corrID)
 
 		l.Debug("Incoming HTTP request",
 			slog.String("method", c.Request.Method),
