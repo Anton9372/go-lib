@@ -45,7 +45,7 @@ func NewServer(
 
 	for _, opt := range opts {
 		if err := opt(router); err != nil {
-			return nil, nil, fmt.Errorf("apply server option: %w", err)
+			return nil, shutdown.CloseFunc{}, fmt.Errorf("apply server option: %w", err)
 		}
 	}
 
@@ -64,8 +64,11 @@ func NewServer(
 		ReadTimeout:  cfg.ReadTimeout,
 	}
 
-	closeFn := func(ctx context.Context) error {
-		return server.Shutdown(ctx)
+	closeFn := shutdown.CloseFunc{
+		Name: "HTTPServer",
+		F: func(ctx context.Context) error {
+			return server.Shutdown(ctx)
+		},
 	}
 
 	return &Server{

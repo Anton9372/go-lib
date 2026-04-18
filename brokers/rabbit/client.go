@@ -61,7 +61,7 @@ func (c *Client) Connect(ctx context.Context) (shutdown.CloseFunc, error) {
 
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return shutdown.CloseFunc{}, ctx.Err()
 			case <-time.After(c.reconnectTimeout):
 				continue
 			}
@@ -73,7 +73,10 @@ func (c *Client) Connect(ctx context.Context) (shutdown.CloseFunc, error) {
 
 	go c.keepConnection(ctx)
 
-	return c.close, nil
+	return shutdown.CloseFunc{
+		Name: "RabbitClient",
+		F:    c.close,
+	}, nil
 }
 
 func (c *Client) NewChannel() (*amqp.Channel, error) {
