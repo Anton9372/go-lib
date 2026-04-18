@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/Anton9372/go-lib/db/transaction"
 )
+
+var ErrTransactionPanic = errors.New("transaction panic")
 
 type txKey struct{}
 
@@ -40,9 +40,9 @@ func (r *PgxTransactionRunner) Run(ctx context.Context, fn func(ctx context.Cont
 	defer func() {
 		if rec := recover(); rec != nil {
 			if e, ok := rec.(error); ok {
-				txErr = fmt.Errorf("%w: %w\nstack:\n%s", transaction.ErrTransactionPanic, e, string(debug.Stack()))
+				txErr = fmt.Errorf("%w: %w\nstack:\n%s", ErrTransactionPanic, e, string(debug.Stack()))
 			} else {
-				txErr = fmt.Errorf("%w: panic value: %v\nstack:\n%s", transaction.ErrTransactionPanic, rec, string(debug.Stack()))
+				txErr = fmt.Errorf("%w: panic value: %v\nstack:\n%s", ErrTransactionPanic, rec, string(debug.Stack()))
 			}
 		}
 	}()

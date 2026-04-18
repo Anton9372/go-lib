@@ -11,7 +11,10 @@ import (
 
 type CloseStage []CloseFunc
 
-type CloseFunc func(context.Context) error
+type CloseFunc struct {
+	Name string
+	F    func(context.Context) error
+}
 
 func CloseConnections(stages []CloseStage, l *slog.Logger, timeout time.Duration) {
 	l.Warn("Closing connections", slog.Duration("timeout", timeout))
@@ -38,8 +41,14 @@ func CloseConnections(stages []CloseStage, l *slog.Logger, timeout time.Duration
 			for _, closeFn := range stage {
 				go func(fn CloseFunc) {
 					defer wg.Done()
-					if err := fn(ctx); err != nil {
-						l.Error("Closing connection", logger.ErrAttr(err))
+
+					if fn.F == nil {
+						l.Warn("Close function is nil, skipping", slog.String("name", fn.Name))
+						return
+					}
+
+					if err := fn.F(ctx); err != nil {
+						l.Error("Closing connection", slog.String("name", fn.Name), logger.ErrAttr(err))
 					}
 				}(closeFn)
 			}

@@ -30,11 +30,14 @@ func New(ctx context.Context, cfg Config, l *slog.Logger) (*redis.Client, shutdo
 		if closeErr := client.Close(); closeErr != nil {
 			l.Error("Unable to close redis client", logger.ErrAttr(err))
 		}
-		return nil, nil, fmt.Errorf("ping redis: %w", err)
+		return nil, shutdown.CloseFunc{}, fmt.Errorf("ping redis: %w", err)
 	}
 
-	closeFn := func(_ context.Context) error {
-		return client.Close()
+	closeFn := shutdown.CloseFunc{
+		Name: "RedisClient",
+		F: func(_ context.Context) error {
+			return client.Close()
+		},
 	}
 
 	return client, closeFn, nil

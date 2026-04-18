@@ -75,7 +75,7 @@ func TestClient_ConnectAndClose(t *testing.T) {
 	require.NotNil(t, ch)
 	assert.False(t, ch.IsClosed(), "channel should be open")
 
-	err = closeFunc(ctx)
+	err = closeFunc.F(ctx)
 	require.NoError(t, err)
 
 	_, err = client.NewChannel()
@@ -103,7 +103,7 @@ func TestClient_ReconnectOnNetworkFailure(t *testing.T) {
 	closeFunc, err := client.Connect(ctx)
 	require.NoError(t, err)
 	defer func() {
-		if err = closeFunc(ctx); err != nil {
+		if err = closeFunc.F(ctx); err != nil {
 			t.Errorf("Close func: %v", err)
 		}
 	}()
@@ -153,7 +153,7 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 	closeFunc, err := client.Connect(ctx)
 	require.NoError(t, err)
 	defer func() {
-		if err = closeFunc(ctx); err != nil {
+		if err = closeFunc.F(ctx); err != nil {
 			t.Errorf("Close func: %v", err)
 		}
 	}()
@@ -197,7 +197,7 @@ func TestClient_WithChannel(t *testing.T) {
 	closeFunc, err := client.Connect(ctx)
 	require.NoError(t, err)
 	defer func() {
-		if err = closeFunc(ctx); err != nil {
+		if err = closeFunc.F(ctx); err != nil {
 			t.Errorf("Close func: %v", err)
 		}
 	}()
