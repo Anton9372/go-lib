@@ -42,7 +42,6 @@ func NewServer(
 	l.Info("Initializing HTTP server", slog.String("host", cfg.Host), slog.String("port", cfg.Port))
 
 	router := gin.New()
-	root := router.Group("")
 
 	for _, opt := range opts {
 		if err := opt(router); err != nil {
@@ -51,6 +50,8 @@ func NewServer(
 	}
 
 	router.Use(middlewares...)
+
+	root := router.Group("")
 
 	for _, h := range handlers {
 		h.RegisterRoutes(root)
