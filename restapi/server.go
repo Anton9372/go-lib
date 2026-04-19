@@ -51,10 +51,10 @@ func NewServer(
 
 	router.Use(middlewares...)
 
-	api := router.Group("/api")
+	root := router.Group("/")
 
 	for _, h := range handlers {
-		h.RegisterRoutes(api)
+		h.RegisterRoutes(root)
 	}
 
 	server := &http.Server{
