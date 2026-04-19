@@ -51,7 +51,7 @@ func NewServer(
 
 	router.Use(middlewares...)
 
-	root := router.Group("")
+	root := router.Group("/")
 
 	for _, h := range handlers {
 		h.RegisterRoutes(root)
