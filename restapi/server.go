@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
 	"github.com/Anton9372/go-lib/shutdown"
@@ -23,6 +24,16 @@ type ServerConfig struct {
 	Port         string        `env:"HTTP_PORT"`
 	ReadTimeout  time.Duration `env:"HTTP_READ_TIMEOUT"`
 	WriteTimeout time.Duration `env:"HTTP_WRITE_TIMEOUT"`
+	CORS         CORSConfig
+}
+
+type CORSConfig struct {
+	Enabled          bool     `env:"HTTP_CORS_ENABLED"`
+	AllowedOrigins   []string `env:"HTTP_CORS_ALLOWED_ORIGINS"`
+	AllowedMethods   []string `env:"HTTP_CORS_ALLOWED_METHODS"`
+	AllowedHeaders   []string `env:"HTTP_CORS_ALLOWED_HEADERS"`
+	ExposedHeaders   []string `env:"HTTP_CORS_EXPOSED_HEADERS"`
+	AllowCredentials bool     `env:"HTTP_CORS_ALLOW_CREDENTIALS"`
 }
 
 type Server struct {
@@ -47,6 +58,15 @@ func NewServer(
 		if err := opt(router); err != nil {
 			return nil, shutdown.CloseFunc{}, fmt.Errorf("apply server option: %w", err)
 		}
+	}
+
+	if cfg.CORS.Enabled {
+		if err := setupCORS(router, cfg.CORS); err != nil {
+			return nil, shutdown.CloseFunc{}, fmt.Errorf("setup CORS: %w", err)
+		}
+		l.Info("HTTP server: CORS middleware enabled")
+	} else {
+		l.Info("HTTP server: CORS middleware disabled")
 	}
 
 	router.Use(middlewares...)
@@ -90,11 +110,50 @@ func (s *Server) Run() error {
 	if err := s.server.ListenAndServe(); err != nil {
 		switch {
 		case errors.Is(err, http.ErrServerClosed):
-			s.l.Warn("HTTP server shutdowns")
+			s.l.Warn("HTTP server shutting down")
 		default:
-			return fmt.Errorf("lister and serve: %w", err)
+			return fmt.Errorf("listen and serve: %w", err)
 		}
 	}
+
+	return nil
+}
+
+func setupCORS(router *gin.Engine, cfg CORSConfig) error {
+	if len(cfg.AllowedOrigins) == 0 {
+		return errors.New("invalid CORS config: AllowedOrigins cannot be empty when CORS is enabled")
+	}
+
+	var hasWildcard bool
+	for _, origin := range cfg.AllowedOrigins {
+		if origin == "*" {
+			hasWildcard = true
+			break
+		}
+	}
+
+	if hasWildcard && len(cfg.AllowedOrigins) > 1 {
+		return errors.New("invalid CORS config: wildcard '*' cannot be mixed with other origins")
+	}
+
+	if cfg.AllowCredentials && hasWildcard {
+		return errors.New("invalid CORS config: cannot use AllowCredentials with wildcard '*' origin")
+	}
+
+	corsConfig := cors.Config{
+		AllowMethods:     cfg.AllowedMethods,
+		AllowHeaders:     cfg.AllowedHeaders,
+		ExposeHeaders:    cfg.ExposedHeaders,
+		AllowCredentials: cfg.AllowCredentials,
+	}
+
+	if hasWildcard {
+		corsConfig.AllowAllOrigins = true
+	} else {
+		corsConfig.AllowOrigins = cfg.AllowedOrigins
+	}
+
+	router.Use(cors.New(corsConfig))
 
 	return nil
 }
