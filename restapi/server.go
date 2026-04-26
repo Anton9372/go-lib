@@ -24,10 +24,11 @@ type ServerConfig struct {
 	Port         string        `env:"HTTP_PORT"`
 	ReadTimeout  time.Duration `env:"HTTP_READ_TIMEOUT"`
 	WriteTimeout time.Duration `env:"HTTP_WRITE_TIMEOUT"`
-	CORS         *CORSConfig
+	CORS         CORSConfig
 }
 
 type CORSConfig struct {
+	Enabled          bool     `env:"HTTP_CORS_ENABLED"`
 	AllowedOrigins   []string `env:"HTTP_CORS_ALLOWED_ORIGINS"`
 	AllowedMethods   []string `env:"HTTP_CORS_ALLOWED_METHODS"`
 	AllowedHeaders   []string `env:"HTTP_CORS_ALLOWED_HEADERS"`
@@ -59,15 +60,24 @@ func NewServer(
 		}
 	}
 
-	if cfg.CORS != nil {
+	if cfg.CORS.Enabled {
 		corsConfig := cors.Config{
-			AllowOrigins:     cfg.CORS.AllowedOrigins,
 			AllowMethods:     cfg.CORS.AllowedMethods,
 			AllowHeaders:     cfg.CORS.AllowedHeaders,
 			ExposeHeaders:    cfg.CORS.ExposedHeaders,
 			AllowCredentials: cfg.CORS.AllowCredentials,
 		}
+
+		if len(cfg.CORS.AllowedOrigins) == 1 && cfg.CORS.AllowedOrigins[0] == "*" {
+			corsConfig.AllowAllOrigins = true
+		} else {
+			corsConfig.AllowOrigins = cfg.CORS.AllowedOrigins
+		}
+
 		router.Use(cors.New(corsConfig))
+		l.Info("HTTP server: CORS middleware enabled")
+	} else {
+		l.Info("HTTP server: CORS middleware disabled")
 	}
 
 	router.Use(middlewares...)
