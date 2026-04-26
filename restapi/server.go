@@ -120,9 +120,23 @@ func (s *Server) Run() error {
 }
 
 func setupCORS(router *gin.Engine, cfg CORSConfig) error {
-	isWildcard := len(cfg.AllowedOrigins) == 1 && cfg.AllowedOrigins[0] == "*"
+	if len(cfg.AllowedOrigins) == 0 {
+		return errors.New("invalid CORS config: AllowedOrigins cannot be empty when CORS is enabled")
+	}
 
-	if cfg.AllowCredentials && isWildcard {
+	var hasWildcard bool
+	for _, origin := range cfg.AllowedOrigins {
+		if origin == "*" {
+			hasWildcard = true
+			break
+		}
+	}
+
+	if hasWildcard && len(cfg.AllowedOrigins) > 1 {
+		return errors.New("invalid CORS config: wildcard '*' cannot be mixed with other origins")
+	}
+
+	if cfg.AllowCredentials && hasWildcard {
 		return errors.New("invalid CORS config: cannot use AllowCredentials with wildcard '*' origin")
 	}
 
@@ -133,7 +147,7 @@ func setupCORS(router *gin.Engine, cfg CORSConfig) error {
 		AllowCredentials: cfg.AllowCredentials,
 	}
 
-	if isWildcard {
+	if hasWildcard {
 		corsConfig.AllowAllOrigins = true
 	} else {
 		corsConfig.AllowOrigins = cfg.AllowedOrigins
